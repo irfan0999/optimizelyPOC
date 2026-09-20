@@ -127,16 +127,18 @@ export default function CmsBridge({ endpoint, serverKey }: { endpoint: string; s
     [append, refresh, runQuery]
   )
 
-  // Resume automatically on load (and remember a key typed by the developer).
+  // Pick up a key the developer typed earlier and show the current queue once.
   useEffect(() => {
-    const stored = typeof window !== 'undefined' ? window.localStorage.getItem(KEY_STORAGE) : null
-    if (!apiKey && stored) setApiKey(stored)
-
+    const stored = window.localStorage.getItem(KEY_STORAGE)
+    if (stored) {
+      setApiKey((current) => current || stored)
+      return
+    }
     void (async () => {
       const data = await refresh()
       append(`${data.pending.length} query/queries queued for capture.`)
     })()
-  }, [append, apiKey, refresh])
+  }, [append, refresh])
 
   useEffect(() => {
     if (startedRef.current) return
