@@ -5,7 +5,7 @@ import {
   selectGlobalConfigItem,
   type SiteSettings,
 } from '@/lib/optimizely/global-config'
-import { getConfigStatus } from '@/lib/optimizely/config'
+import { getConfigStatus, optimizelyConfig } from '@/lib/optimizely/config'
 
 const SOURCE_STYLES: Record<SiteSettings['status']['source'], { label: string; className: string; hint: string }> = {
   live: {
@@ -21,7 +21,7 @@ const SOURCE_STYLES: Record<SiteSettings['status']['source'], { label: string; c
   sample: {
     label: 'Sample data',
     className: 'bg-amber-50 text-amber-800 border-amber-200',
-    hint: 'Optimizely Graph is not reachable from this environment — showing the built-in sample.',
+    hint: 'The CMS content could not be loaded on this runtime — showing the built-in sample. The reason is below.',
   },
   none: {
     label: 'Unavailable',
@@ -54,9 +54,11 @@ export default async function CmsSourceCard({ settings }: { settings: SiteSettin
           <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${status.className}`}>{status.label}</span>
           <h2 className="text-lg font-semibold text-slate-900">Where this content comes from</h2>
         </div>
-        <Link href="/cms-bridge" className="text-sm font-medium text-brand-700 underline">
-          Open the CMS bridge →
-        </Link>
+        {optimizelyConfig.bridgeEnabled ? (
+          <Link href="/cms-bridge" className="text-sm font-medium text-brand-700 underline">
+            Open the CMS bridge →
+          </Link>
+        ) : null}
       </div>
 
       <p className="mt-3 text-sm text-slate-600">{status.hint}</p>
@@ -86,6 +88,14 @@ export default async function CmsSourceCard({ settings }: { settings: SiteSettin
           <div className="flex justify-between gap-4 border-b border-slate-100 py-1">
             <dt className="text-slate-500">Captured</dt>
             <dd className="text-slate-700">{new Date(settings.status.fetchedAt).toLocaleString()}</dd>
+          </div>
+        ) : null}
+        {settings.status.store ? (
+          <div className="flex justify-between gap-4 border-b border-slate-100 py-1">
+            <dt className="text-slate-500">Response cache</dt>
+            <dd className="max-w-[60%] truncate text-right font-mono text-xs text-slate-700" title={settings.status.store.reason}>
+              {settings.status.store.backend === 'disk' ? settings.status.store.directory : 'memory (read-only file system)'}
+            </dd>
           </div>
         ) : null}
         {selection ? (
@@ -123,13 +133,21 @@ export default async function CmsSourceCard({ settings }: { settings: SiteSettin
         </div>
       ) : null}
 
-      {settings.status.queued ? (
+      {settings.status.queued && optimizelyConfig.bridgeEnabled ? (
         <p className="mt-4 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800">
           The queries for this content are queued. Open the{' '}
           <Link href="/cms-bridge" className="font-semibold underline">
             CMS bridge
           </Link>{' '}
           from a browser that can reach Optimizely Graph to capture them.
+        </p>
+      ) : null}
+      {settings.status.source === 'sample' && !optimizelyConfig.bridgeEnabled ? (
+        <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          On a hosted deployment the values above come from the host&apos;s environment variables — set{' '}
+          <code className="rounded bg-white/70 px-1">OPTIMIZELY_SINGLE_KEY</code> and{' '}
+          <code className="rounded bg-white/70 px-1">OPTIMIZELY_GLOBAL_CONFIG_ID</code> there, redeploy, and make sure
+          the host can reach <code className="rounded bg-white/70 px-1">cg.optimizely.com</code>.
         </p>
       ) : null}
     </section>

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import CmsSourceCard from '@/components/cms-source-card'
 import GlobalSettingsPanel from '@/components/global-settings-panel'
 import { getSiteSettings } from '@/lib/optimizely/global-config'
+import { optimizelyConfig } from '@/lib/optimizely/config'
 
 export const revalidate = 300
 
@@ -77,13 +78,15 @@ export default async function Home() {
           <li>The key is looked up in Optimizely Graph and its content type is read from <code className="rounded bg-white px-1 py-0.5 font-mono text-xs">_metadata.types</code>.</li>
           <li>The Graph schema is introspected, so the query asks for <em>every</em> property of that content type — add a property in the CMS and it appears here without a code change.</li>
           <li>Values are normalised (string, XHTML, link, content reference, block list…) and mapped to the header, footer and page copy.</li>
-          <li>
-            If Graph cannot be reached from this runtime the queries are queued and can be captured from a browser on{' '}
-            <Link href="/cms-bridge" className="font-medium text-brand-700 underline">
-              /cms-bridge
-            </Link>
-            .
-          </li>
+          {optimizelyConfig.bridgeEnabled ? (
+            <li>
+              If Graph cannot be reached from this runtime the queries are queued and can be captured from a browser on{' '}
+              <Link href="/cms-bridge" className="font-medium text-brand-700 underline">
+                /cms-bridge
+              </Link>
+              .
+            </li>
+          ) : null}
         </ol>
       </section>
     </main>

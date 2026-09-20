@@ -3,6 +3,7 @@ import './globals.css'
 import SiteHeader from '@/components/site-header'
 import SiteFooter from '@/components/site-footer'
 import { getSiteSettings } from '@/lib/optimizely/global-config'
+import { siteUrl } from '@/lib/optimizely/config'
 
 /** Site-wide content is CMS driven — refresh it every 5 minutes unless a capture revalidates it. */
 export const revalidate = 300
@@ -15,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const absoluteLogo = logo && /^https?:\/\//i.test(logo) ? logo : undefined
 
   return {
-    metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
+    metadataBase: siteUrl(),
     title: title || 'Medicare — Your Health, Our Priority',
     description:
       settings.tagline ??

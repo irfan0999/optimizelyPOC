@@ -26,7 +26,8 @@ npm run dev
 | `OPTIMIZELY_GLOBAL_CONFIG_ID` | Content key (GUID) of the global settings item |
 | `OPTIMIZELY_PREVIEW_SECRET` | `Base64(AppKey:AppSecret)`, only for draft/preview content |
 | `OPTIMIZELY_OFFLINE` | `1` = never call Graph, render from `.cms-cache/` only |
-| `NEXT_PUBLIC_SITE_URL` | Absolute site URL used for canonical/OG metadata |
+| `OPTIMIZELY_CACHE_DIR` | Optional directory for captured responses (default `.cms-cache/`, see *Deploying*) |
+| `NEXT_PUBLIC_SITE_URL` | Absolute site URL used for canonical/OG metadata (scheme optional) |
 
 Open <http://localhost:3000> — the hero, header and footer are CMS content, and the
 **“Global settings — every property in Optimizely Graph”** panel lists every property that came back,
@@ -80,7 +81,23 @@ Open **`/cms-bridge`** from a browser that can reach Optimizely Graph: it replay
 `.cms-cache/`, and the site then renders real CMS content. There is also a manual mode: copy a query, run
 it anywhere (GraphiQL, `curl`), paste the JSON back.
 
-The bridge is a development tool and returns 404 in production unless `OPTIMIZELY_ENABLE_CMS_BRIDGE=1`.
+The bridge (page **and** `/api/cms-bridge`) is a development tool and returns 404 in production unless
+`OPTIMIZELY_ENABLE_CMS_BRIDGE=1`.
+
+---
+
+## Deploying (Vercel, Netlify, containers…)
+
+1. **Set the environment variables on the host** — `.env.local` is git-ignored and never reaches the deployment.
+   At minimum: `OPTIMIZELY_SINGLE_KEY`, `OPTIMIZELY_GLOBAL_CONFIG_ID` (and `NEXT_PUBLIC_SITE_URL`). Redeploy
+   afterwards: the home page is prerendered, so the values are read at build time and then every 5 minutes (ISR).
+2. **Read-only file systems are fine.** Captured Graph responses go to the first writable location:
+   `OPTIMIZELY_CACHE_DIR` → `<project>/.cms-cache/` → the OS temp directory → process memory. Nothing is thrown
+   when a directory cannot be written (previously an `EROFS`/`EACCES` on `mkdir .cms-cache` produced
+   *"Application error: a server-side exception has occurred"* on serverless hosts). The **Response cache** row
+   on the home page shows which location is in use.
+3. The host must be able to reach `cg.optimizely.com`; the browser bridge is not available in production unless
+   `OPTIMIZELY_ENABLE_CMS_BRIDGE=1` is set (do not do this on a public site).
 
 ---
 

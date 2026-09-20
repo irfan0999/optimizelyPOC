@@ -39,7 +39,40 @@ export const optimizelyConfig = {
   offline: readEnv('OPTIMIZELY_OFFLINE') === '1',
   /** Seconds the Graph responses stay warm in Next's data cache. */
   revalidate: Number(readEnv('OPTIMIZELY_REVALIDATE') ?? 300),
+  /** Optional directory for captured Graph responses (defaults to `<project>/.cms-cache`). */
+  cacheDir: unquote(readEnv('OPTIMIZELY_CACHE_DIR')),
+  /**
+   * The browser bridge (`/cms-bridge` + `/api/cms-bridge`) is a development tool:
+   * it is only served in production when explicitly enabled.
+   */
+  bridgeEnabled: process.env.NODE_ENV !== 'production' || readEnv('OPTIMIZELY_ENABLE_CMS_BRIDGE') === '1',
 } as const
+
+/**
+ * Absolute URL of the site, used for `metadataBase` (canonical / Open Graph URLs).
+ *
+ * Accepts `NEXT_PUBLIC_SITE_URL` with or without a scheme, falls back to the
+ * URL Vercel injects for the deployment, then to localhost. It never throws —
+ * an invalid value used to fail the build with `TypeError: Invalid URL`.
+ */
+export function siteUrl(): URL {
+  const candidates = [
+    unquote(readEnv('NEXT_PUBLIC_SITE_URL')),
+    readEnv('VERCEL_PROJECT_PRODUCTION_URL', 'VERCEL_URL'),
+    'http://localhost:3000',
+  ]
+
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(candidate) ? candidate : `https://${candidate}`
+    try {
+      return new URL(withScheme)
+    } catch {
+      // Try the next candidate.
+    }
+  }
+  return new URL('http://localhost:3000')
+}
 
 export interface ConfigStatus {
   configured: boolean

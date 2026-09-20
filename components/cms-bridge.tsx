@@ -22,8 +22,8 @@ interface SettingsSnapshot {
 
 interface BridgeState {
   endpoint: string
-  serverKey: string | null
   hasServerKey: boolean
+  store?: { backend: 'disk' | 'memory'; directory: string; reason?: string }
   pending: PendingQuery[]
   settings: SettingsSnapshot
 }
@@ -227,6 +227,16 @@ export default function CmsBridge({ endpoint, serverKey }: { endpoint: string; s
           <div className="flex justify-between gap-4 border-b border-slate-100 pb-2">
             <dt className="text-slate-500">Properties</dt>
             <dd className="font-medium text-slate-900">{settings?.propertyCount ?? 0}</dd>
+          </div>
+          <div className="flex justify-between gap-4 border-b border-slate-100 pb-2 sm:col-span-2">
+            <dt className="text-slate-500">Captured responses</dt>
+            <dd className="truncate font-mono text-xs text-slate-700" title={state?.store?.reason}>
+              {state?.store
+                ? state.store.backend === 'disk'
+                  ? state.store.directory
+                  : 'process memory (no writable directory)'
+                : '—'}
+            </dd>
           </div>
         </dl>
         <div className="mt-4 max-h-72 overflow-auto rounded-xl bg-slate-900 p-4 font-mono text-xs leading-6 text-slate-100">

@@ -11,7 +11,7 @@ import { optimizelyConfig } from '@/lib/optimizely/config'
 export const dynamic = 'force-dynamic'
 
 export default function CmsBridgePage() {
-  if (process.env.NODE_ENV === 'production' && process.env.OPTIMIZELY_ENABLE_CMS_BRIDGE !== '1') {
+  if (!optimizelyConfig.bridgeEnabled) {
     notFound()
   }
 
@@ -22,8 +22,8 @@ export default function CmsBridgePage() {
       <p className="mt-3 text-sm leading-6 text-slate-600">
         This runtime can only render content it has local access to. Whenever a Graph query cannot be executed here it
         is queued, and this page replays it from your browser — which normally <em>can</em> reach Optimizely Graph. The
-        captured responses are cached in <code className="rounded bg-slate-100 px-1">.cms-cache/</code> so every page
-        renders with real CMS content.
+        captured responses are cached locally (<code className="rounded bg-slate-100 px-1">.cms-cache/</code>, or a
+        temporary directory / memory when the project folder is read-only) so every page renders with real CMS content.
       </p>
       <div className="mt-8">
         <CmsBridge endpoint={optimizelyConfig.apiUrl} serverKey={optimizelyConfig.singleKey ?? null} />

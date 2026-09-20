@@ -10,16 +10,27 @@
  *
  * GET  → advances the query plan (one step) and returns what still needs running
  * POST → stores a captured response, then returns the refreshed queue
+ *
+ * Like the page, the API is a development tool: in production it answers 404
+ * unless OPTIMIZELY_ENABLE_CMS_BRIDGE=1 (anyone reaching it could otherwise
+ * inject content into the cache or wipe it).
  */
 
 import { NextResponse } from 'next/server'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { getConfigStatus, optimizelyConfig } from '@/lib/optimizely/config'
-import { clearResults, listPending, readPending, writeResult } from '@/lib/optimizely/store'
+import { clearResults, getStoreInfo, listPending, readPending, writeResult } from '@/lib/optimizely/store'
 import { getGlobalSettings, selectGlobalConfigItem } from '@/lib/optimizely/global-config'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+function disabled() {
+  return NextResponse.json(
+    { error: 'The CMS bridge is disabled in production. Set OPTIMIZELY_ENABLE_CMS_BRIDGE=1 to enable it.', pending: [] },
+    { status: 404 }
+  )
+}
 
 async function queueStatus() {
   // Render the global settings again: anything still missing is (re)queued, and
@@ -29,10 +40,11 @@ async function queueStatus() {
 
   return {
     endpoint: optimizelyConfig.apiUrl,
-    serverKey: optimizelyConfig.singleKey ?? null,
-    // The key never leaves the browser when it is not configured server-side.
+    // The key itself is only handed to the bridge page (server component) — it
+    // is not repeated here so the API never becomes a way to read it.
     hasServerKey: Boolean(optimizelyConfig.singleKey),
     config: getConfigStatus(),
+    store: await getStoreInfo(),
     pending,
     settings: {
       source: settings.status.source,
@@ -46,6 +58,7 @@ async function queueStatus() {
 }
 
 export async function GET() {
+  if (!optimizelyConfig.bridgeEnabled) return disabled()
   try {
     return NextResponse.json(await queueStatus())
   } catch (error) {
@@ -54,6 +67,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!optimizelyConfig.bridgeEnabled) return disabled()
   try {
     const body = (await request.json()) as {
       action?: 'capture' | 'reset' | 'select'

@@ -28,7 +28,7 @@ import {
   loadSchema,
   pickConcreteType,
 } from './schema'
-import { readState, writeState } from './store'
+import { StoreInfo, getStoreInfo, readState, writeState } from './store'
 import { runQuery } from './client'
 import {
   CmsImage,
@@ -97,6 +97,8 @@ export interface SiteSettings {
     queued?: boolean
     queryLabel?: string
     retriedKeys?: string[]
+    /** Where captured responses are kept on this runtime (disk directory or process memory). */
+    store?: StoreInfo
   }
 }
 
@@ -229,7 +231,14 @@ function toMeta(item: ContentLookupItem, typeName: string, key: string): GlobalS
   const url = item._metadata?.url
   const path = url?.default ?? item.Url
   const base = url?.base ?? ''
-  const absolute = path && base ? new URL(path, base).toString() : path
+  let absolute = path
+  if (path && base) {
+    try {
+      absolute = new URL(path, base).toString()
+    } catch {
+      // Graph can hold a host without a scheme (e.g. "www.example.com") — keep the relative path.
+    }
+  }
 
   return {
     key: item._metadata?.key ?? key,
@@ -386,6 +395,13 @@ export interface GetGlobalSettingsOptions {
 }
 
 export async function getGlobalSettings(options: GetGlobalSettingsOptions = {}): Promise<SiteSettings> {
+  const settings = await loadGlobalSettings(options)
+  // Tell the UI where captured responses live on this runtime (helps when a
+  // host has a read-only file system and the cache is memory-only).
+  return { ...settings, status: { ...settings.status, store: await getStoreInfo() } }
+}
+
+async function loadGlobalSettings(options: GetGlobalSettingsOptions = {}): Promise<SiteSettings> {
   const { preview = false } = options
   const configStatus = getConfigStatus()
   const retriedKeys: string[] = []
