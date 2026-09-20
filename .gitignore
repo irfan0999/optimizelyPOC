@@ -41,5 +41,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# temporary CMS schema probe output
-cms-probe-output/
+# captured Optimizely Graph responses (browser bridge + offline cache)
+.cms-cache/
