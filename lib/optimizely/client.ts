@@ -1,19 +1,17 @@
 /**
  * Thin Optimizely Graph client.
  *
- * Request flow for every query (in order):
+ * Request flow for every query:
  *   1. live POST to Optimizely Graph   → renders + refreshes the local cache
  *   2. last captured response on disk  → keeps the site rendering when Graph is
  *      unreachable (offline dev, CI, network-restricted sandboxes)
- *   3. queue the query for the browser bridge (`/cms-bridge`) and report a
- *      structured error instead of throwing
  *
- * Nothing here ever throws for a CMS problem: callers get a result object with
- * the `source` the content was rendered from, which the UI surfaces.
+ * Nothing here throws for a CMS problem: callers get a result object with the
+ * `source` the content was rendered from, which the UI surfaces.
  */
 
 import { graphEndpoint, optimizelyConfig } from './config'
-import { GraphRequest, readResult, recordPending, writeResult } from './store'
+import { GraphRequest, readResult, writeResult } from './store'
 
 export type QuerySource = 'live' | 'cache' | 'none'
 
@@ -30,8 +28,6 @@ export interface QueryOutcome<T> {
   source: QuerySource
   fetchedAt?: string
   error?: string
-  /** true when the query was handed to the browser bridge and can be retried there. */
-  queued?: boolean
 }
 
 export interface QueryOptions {
@@ -41,8 +37,6 @@ export interface QueryOptions {
   tag?: string
   /** Seconds to keep the live response warm (0 = always revalidate). */
   revalidate?: number
-  /** Queue the query for the browser bridge when it cannot be executed. */
-  queue?: boolean
 }
 
 /**
@@ -137,7 +131,7 @@ export async function runQuery<T = Record<string, unknown>>(
   request: GraphRequest,
   options: QueryOptions = {}
 ): Promise<QueryOutcome<T>> {
-  const { preview = false, queue = true } = options
+  const { preview = false } = options
   let liveError: string | undefined
 
   if (!optimizelyConfig.offline && optimizelyConfig.apiUrl) {
@@ -176,40 +170,9 @@ export async function runQuery<T = Record<string, unknown>>(
     }
   }
 
-  if (queue) {
-    await recordPending(request, liveError ?? 'unknown error')
-  }
-
   return {
     ok: false,
     source: 'none',
     error: liveError ?? 'unknown error',
-    queued: queue,
-  }
-}
-
-/**
- * Run several candidates in order and return the first usable response.
- * Used when the exact shape of a content type is not known up front.
- */
-export async function runFirstSuccessful<T = Record<string, unknown>>(
-  requests: GraphRequest[],
-  options: QueryOptions = {}
-): Promise<QueryOutcome<T> & { request?: GraphRequest }> {
-  const failures: string[] = []
-
-  for (const request of requests) {
-    const outcome = await runQuery<T>(request, options)
-    if (outcome.ok && outcome.data) {
-      return { ...outcome, request }
-    }
-    failures.push(`${request.label}: ${outcome.error ?? 'no data'}`)
-  }
-
-  return {
-    ok: false,
-    source: 'none',
-    error: failures.join(' | '),
-    queued: requests.length > 0,
   }
 }

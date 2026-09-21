@@ -12,7 +12,7 @@
  *   4. the payload is normalised into the `SiteSettings` model
  *
  * Any step that cannot reach Optimizely Graph falls back to the last captured
- * response, and otherwise hands the query to the browser bridge (`/cms-bridge`).
+ * response in `.cms-cache/`.
  */
 
 import { cache } from 'react'
@@ -44,7 +44,6 @@ import {
   toLinks,
   toText,
 } from './normalize'
-import { sampleContentItem, sampleLookupItem } from './fixture'
 
 export interface GlobalSettingsMeta {
   key?: string
@@ -98,11 +97,9 @@ export interface SiteSettings {
   /** Populated when the configured GUID was not found: other global-looking items. */
   candidateItems: ContentLookupItem[]
   status: {
-    source: 'live' | 'cache' | 'sample' | 'none'
+    source: 'live' | 'cache' | 'none'
     fetchedAt?: string
     error?: string
-    /** true when the queries could not run here and were queued for `/cms-bridge`. */
-    queued?: boolean
     queryLabel?: string
     retriedKeys?: string[]
   }
@@ -142,7 +139,7 @@ async function resolveGlobalConfigItem({
 }: {
   preview: boolean
   retriedKeys: string[]
-}): Promise<{ resolution?: Resolution; error?: string; queued?: boolean }> {
+}): Promise<{ resolution?: Resolution; error?: string }> {
   const selection = await getSelectedGlobalConfigItem()
   const configuredKey = selection?.key ?? optimizelyConfig.globalConfigId
   if (!configuredKey) {
@@ -167,11 +164,8 @@ async function resolveGlobalConfigItem({
       retriedKeys.push(key)
 
       if (outcome.source === 'none') {
-        // Nothing cached and Graph is unreachable: this single request is now
-        // queued for the browser bridge. Stop here — the next render (or bridge
-        // poll) continues from whatever the bridge captured, one step at a time,
-        // instead of queueing every candidate at once.
-        return { error: outcome.error, queued: Boolean(outcome.queued) }
+        // Nothing cached and Graph is unreachable — surface the error.
+        return { error: outcome.error }
       }
       if (!outcome.ok) {
         // This metadata shape does not exist on this Graph instance — try the next one.
@@ -204,7 +198,6 @@ async function resolveGlobalConfigItem({
 
   return {
     error: `No content item found for key ${configuredKey}.`,
-    queued: false,
   }
 }
 
@@ -438,7 +431,7 @@ export async function getGlobalSettings(options: GetGlobalSettingsOptions = {}):
   const configStatus = getConfigStatus()
   const retriedKeys: string[] = []
 
-  const { resolution, error, queued } = await resolveGlobalConfigItem({ preview, retriedKeys })
+  const { resolution, error } = await resolveGlobalConfigItem({ preview, retriedKeys })
 
   if (resolution) {
     const schema = await loadSchema()
@@ -452,8 +445,7 @@ export async function getGlobalSettings(options: GetGlobalSettingsOptions = {}):
           source: 'none',
           error:
             schema.error ??
-            'The Optimizely Graph schema is not available yet — introspection is queued for the browser bridge.',
-          queued: true,
+            'The Optimizely Graph schema is not available yet — try again in a moment.',
           retriedKeys,
         },
       }
@@ -491,28 +483,30 @@ export async function getGlobalSettings(options: GetGlobalSettingsOptions = {}):
           requests.length === 0
             ? `Content type ${resolution.typeName} exposes no queryable properties in the Graph schema.`
             : 'The global settings item was found but its properties could not be loaded.',
-        queued: true,
         retriedKeys,
       },
     }
   }
 
-  // Nothing resolved — offer other global-looking items so the developer can pin one.
+  // Nothing resolved — surface the error and offer other global-looking items.
   const schema = await loadSchema()
   const candidateItems = await findCandidateItems(schema.index, preview)
 
-  const sample = normalizeSiteSettings(sampleContentItem(), toMeta(sampleLookupItem(), 'GlobalConfigDefault', optimizelyConfig.globalConfigId ?? ''))
   return {
-    ...sample,
+    ...normalizeSiteSettings({}, {
+      key: optimizelyConfig.globalConfigId,
+      displayName: undefined,
+      typeName: undefined,
+      types: [],
+    }),
     candidateItems,
     status: {
-      source: 'sample',
+      source: 'none',
       error:
         error ??
         (configStatus.missing.length
           ? `Missing configuration: ${configStatus.missing.join(', ')}.`
           : 'Optimizely Graph could not be reached.'),
-      queued,
       retriedKeys,
     },
   }

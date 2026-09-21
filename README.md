@@ -66,21 +66,18 @@ export const fieldOverrides: Record<string, string> = {
 
 ---
 
-## Rendering from an environment without network access (browser bridge)
+## Rendering when Optimizely Graph is unreachable
 
 Some runtimes (sandboxes, firewalled CI) cannot reach `cg.optimizely.com`. The app never breaks in that
 case — every query follows this order:
 
 1. **live** request to Optimizely Graph,
 2. the **last captured response** in `.cms-cache/` (so pages keep rendering),
-3. the query is **queued** for the browser bridge and the UI shows a sample payload labelled as such.
+3. otherwise the page renders an explicit "unavailable" state instead of throwing.
 
-Open **`/cms-bridge`** from a browser that can reach Optimizely Graph: it replays the queued queries
-(using your single key — typed in the page or taken from `OPTIMIZELY_SINGLE_KEY`), stores the responses in
-`.cms-cache/`, and the site then renders real CMS content. There is also a manual mode: copy a query, run
-it anywhere (GraphiQL, `curl`), paste the JSON back.
-
-The bridge is a development tool and returns 404 in production unless `OPTIMIZELY_ENABLE_CMS_BRIDGE=1`.
+To warm the cache ahead of time (e.g. for an offline demo), run the app once with network access — every
+successful response is stored under `.cms-cache/` and reused when Graph goes away. You can also pin the
+renderer to cache-only mode with `OPTIMIZELY_OFFLINE=1`.
 
 ---
 
@@ -90,22 +87,19 @@ The bridge is a development tool and returns 404 in production unless `OPTIMIZEL
 app/
   layout.tsx                 header/footer + metadata built from the global settings
   page.tsx                   home page + CMS inspector panel
-  cms-bridge/page.tsx        browser bridge UI
-  api/cms-bridge/route.ts    queue + capture API for the bridge
 components/
-  site-header.tsx            logo, navigation, CTA, phone — all CMS driven
-  site-footer.tsx            footer columns, contact, legal, copyright — CMS driven
+  site-header.tsx            logo, navigation, CTAs — all CMS driven
+  site-footer.tsx            footer logo, description, social links, copyright — CMS driven
   global-settings-panel.tsx  raw Graph payload explorer (property names, kinds, values)
-  cms-source-card.tsx        explains live/captured/sample source, lets you pin a content item
+  cms-source-card.tsx        explains live/captured source, lets you pin a content item
 lib/optimizely/
   config.ts                  env configuration, key candidates, endpoint building
-  client.ts                  GraphQL client: live → cache → bridge queue
+  client.ts                  GraphQL client: live → cache fallback
   schema.ts                  introspection, content-type discovery, query generation
   global-config.ts           getGlobalSettings() → SiteSettings
   normalize.ts               value normalisation + heuristic field mapping
   field-map.ts               explicit CMS property → settings field overrides
-  store.ts                   .cms-cache/ (captured responses, queued queries, state)
-  fixture.ts                 built-in sample payload (clearly labelled in the UI)
+  store.ts                   .cms-cache/ (captured responses, state)
 ```
 
 ## Scripts

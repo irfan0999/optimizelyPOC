@@ -78,11 +78,8 @@ export default async function Home() {
           <li>The Graph schema is introspected, so the query asks for <em>every</em> property of that content type — add a property in the CMS and it appears here without a code change.</li>
           <li>Values are normalised (string, XHTML, link, content reference, block list…) and mapped to the header, footer and page copy.</li>
           <li>
-            If Graph cannot be reached from this runtime the queries are queued and can be captured from a browser on{' '}
-            <Link href="/cms-bridge" className="font-medium text-brand-700 underline">
-              /cms-bridge
-            </Link>
-            .
+            If Graph cannot be reached from this runtime, the last captured response in{' '}
+            <code className="rounded bg-white px-1 py-0.5 font-mono text-xs">.cms-cache/</code> is rendered instead.
           </li>
         </ol>
       </section>

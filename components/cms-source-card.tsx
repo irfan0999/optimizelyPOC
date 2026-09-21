@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import {
   getSelectedGlobalConfigItem,
@@ -16,12 +15,7 @@ const SOURCE_STYLES: Record<SiteSettings['status']['source'], { label: string; c
   cache: {
     label: 'Captured',
     className: 'bg-sky-50 text-sky-700 border-sky-200',
-    hint: 'Rendered from a response captured earlier (browser bridge or previous live request).',
-  },
-  sample: {
-    label: 'Sample data',
-    className: 'bg-amber-50 text-amber-800 border-amber-200',
-    hint: 'Optimizely Graph is not reachable from this environment — showing the built-in sample.',
+    hint: 'Rendered from a response captured earlier.',
   },
   none: {
     label: 'Unavailable',
@@ -54,9 +48,6 @@ export default async function CmsSourceCard({ settings }: { settings: SiteSettin
           <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${status.className}`}>{status.label}</span>
           <h2 className="text-lg font-semibold text-slate-900">Where this content comes from</h2>
         </div>
-        <Link href="/cms-bridge" className="text-sm font-medium text-brand-700 underline">
-          Open the CMS bridge →
-        </Link>
       </div>
 
       <p className="mt-3 text-sm text-slate-600">{status.hint}</p>
@@ -123,15 +114,7 @@ export default async function CmsSourceCard({ settings }: { settings: SiteSettin
         </div>
       ) : null}
 
-      {settings.status.queued ? (
-        <p className="mt-4 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800">
-          The queries for this content are queued. Open the{' '}
-          <Link href="/cms-bridge" className="font-semibold underline">
-            CMS bridge
-          </Link>{' '}
-          from a browser that can reach Optimizely Graph to capture them.
-        </p>
-      ) : null}
+
     </section>
   )
 }

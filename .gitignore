@@ -41,5 +41,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# captured Optimizely Graph responses (browser bridge + offline cache)
+# cached Optimizely Graph responses (offline/resilience cache)
 .cms-cache/

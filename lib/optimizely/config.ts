@@ -35,7 +35,7 @@ export const optimizelyConfig = {
   cmsUrl: unquote(readEnv('NEXT_PUBLIC_CMS_URL')),
   /** Optional locale to pin the global settings query to. */
   defaultLocale: unquote(readEnv('OPTIMIZELY_DEFAULT_LOCALE')),
-  /** Force the offline (cached / browser-bridge) code path. */
+  /** Set to 1 to skip live requests entirely and render from .cms-cache/ only. */
   offline: readEnv('OPTIMIZELY_OFFLINE') === '1',
   /** Seconds the Graph responses stay warm in Next's data cache. */
   revalidate: Number(readEnv('OPTIMIZELY_REVALIDATE') ?? 300),
@@ -55,8 +55,6 @@ export function getConfigStatus(): ConfigStatus {
   return {
     configured: missing.length === 0,
     missing,
-    // A browser-bridge capture can supply data without a server-side key, so the
-    // Graph endpoint alone is enough to be "reachable".
     graphQlReady: Boolean(optimizelyConfig.apiUrl),
   }
 }

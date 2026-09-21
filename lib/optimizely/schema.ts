@@ -88,16 +88,13 @@ export async function loadSchema(): Promise<{
   index: SchemaIndex | null
   source: 'live' | 'cache' | 'none'
   error?: string
-  queued?: boolean
 }> {
   const stored = await readState<IntrospectionPayload>(SCHEMA_STATE)
   const request = introspectionRequest()
 
   // A live introspection refreshes the snapshot; otherwise reuse the snapshot.
-  const outcome = await runQuery<IntrospectionPayload>(request, { queue: true })
+  const outcome = await runQuery<IntrospectionPayload>(request)
   if (outcome.data?.__schema?.types) {
-    // Live introspection comes straight from Graph; a captured one comes from the
-    // browser bridge. Either way it is a usable schema snapshot.
     const index = buildIndex(outcome.data)
     if (outcome.source === 'live') {
       await writeState(SCHEMA_STATE, outcome.data)
@@ -113,7 +110,6 @@ export async function loadSchema(): Promise<{
     index: null,
     source: 'none',
     error: outcome.error ?? 'Optimizely Graph schema is unavailable.',
-    queued: outcome.queued,
   }
 }
 
