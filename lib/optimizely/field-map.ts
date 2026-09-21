@@ -17,7 +17,17 @@
  * panel lists every property that came back from Graph with its exact name.
  */
 export const fieldOverrides: Record<string, string> = {
-  // Add your own mappings here.
+  // HeaderSettingsDOC (global settings item "Headerconfigcommon")
+  Logo: 'logo',
+  NavigationItems: 'navigation',
+  LoginText: 'loginText',
+  LoginLink: 'loginHref',
+  AppointmentText: 'appointmentText',
+  AppointmentLink: 'appointmentHref',
+  FooterSettings_Description: 'footerDescription',
+  FooterSettings_SocialLinks: 'socialLinks',
+  FooterSettings_CopyrightText: 'copyright',
+  FooterSettings_Logo: 'footerLogo',
 }
 
 /**

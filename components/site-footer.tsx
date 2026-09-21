@@ -3,14 +3,23 @@ import type { SiteSettings } from '@/lib/optimizely/global-config'
 
 /** Site footer rendered from the CMS global settings: columns, contact, legal, copyright. */
 export default function SiteFooter({ settings }: { settings: SiteSettings }) {
-  const { footerColumns, socialLinks, legalLinks, contact, copyright, siteName, tagline } = settings
+  const { footerLogo, footerColumns, footerDescription, socialLinks, legalLinks, contact, copyright, siteName, tagline } = settings
 
   return (
     <footer className="mt-20 bg-brand-900 text-brand-50">
       <div className="mx-auto grid max-w-6xl gap-10 px-6 py-12 md:grid-cols-4">
         <div className="md:col-span-1">
-          <p className="text-lg font-bold">{siteName ?? 'Untitled site'}</p>
-          {tagline ? <p className="mt-2 text-sm text-brand-100/80">{tagline}</p> : null}
+          {footerLogo?.url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={footerLogo.url}
+              alt={footerLogo.alt ?? siteName ?? 'Logo'}
+              className="h-12 w-auto object-contain"
+            />
+          ) : (
+            <p className="text-lg font-bold">{siteName ?? 'Untitled site'}</p>
+          )}
+          <p className="mt-2 text-sm text-brand-100/80">{footerDescription ?? tagline}</p>
           <div className="mt-4 space-y-1 text-sm text-brand-100/90">
             {contact.email ? (
               <p>

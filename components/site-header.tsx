@@ -6,7 +6,7 @@ import type { SiteSettings } from '@/lib/optimizely/global-config'
  * logo, site name, navigation, contact phone and the primary call to action.
  */
 export default function SiteHeader({ settings }: { settings: SiteSettings }) {
-  const { logo, siteName, navigation, cta, contact, announcement } = settings
+  const { logo, siteName, navigation, cta, login, appointment, contact, announcement } = settings
 
   return (
     <header className="sticky top-0 z-30">
@@ -62,6 +62,19 @@ export default function SiteHeader({ settings }: { settings: SiteSettings }) {
               <a href={`tel:${contact.phone.replace(/[^+\d]/g, '')}`} className="hidden text-sm font-medium text-slate-600 lg:block">
                 {contact.phone}
               </a>
+            ) : null}
+            {login ? (
+              <Link href={login.href} className="hidden text-sm font-medium text-slate-600 transition hover:text-brand-700 sm:block">
+                {login.label ?? 'Login'}
+              </Link>
+            ) : null}
+            {appointment ? (
+              <Link
+                href={appointment.href}
+                className="rounded-full border border-brand-600 px-4 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-50"
+              >
+                {appointment.label ?? 'Appointment'}
+              </Link>
             ) : null}
             {cta ? (
               <Link

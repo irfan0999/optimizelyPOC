@@ -34,6 +34,7 @@ import {
   CmsImage,
   CmsLink,
   RawField,
+  isPlainObject,
   describeRawFields,
   mapFields,
   toColumns,
@@ -65,7 +66,14 @@ export interface SiteSettings {
   favicon?: CmsImage
   navigation: CmsLink[]
   cta?: CmsLink
+  /** Secondary header action, e.g. a login link. */
+  login?: CmsLink
+  /** Primary header action, e.g. a book-appointment link. */
+  appointment?: CmsLink
   footerColumns: { title?: string; links: CmsLink[] }[]
+  /** Logo rendered inside the footer, when the CMS model has its own. */
+  footerLogo?: CmsImage
+  footerDescription?: string
   copyright?: string
   socialLinks: CmsLink[]
   legalLinks: CmsLink[]
@@ -257,6 +265,8 @@ export function normalizeSiteSettings(
     favicon?: CmsImage
     navigation: CmsLink[]
     footerColumns: { title?: string; links: CmsLink[] }[]
+    footerLogo?: CmsImage
+    footerDescription?: string
     socialLinks: CmsLink[]
     legalLinks: CmsLink[]
     copyright?: string
@@ -281,8 +291,23 @@ export function normalizeSiteSettings(
     rawFields[key] = value
   }
 
+  // Models like HeaderSettingsDOC nest the whole footer inside a
+  // `FooterSettings` block — hoist its properties so the regular mapping
+  // (footer logo, social links, copyright…) sees them at the top level.
+  const footerBlockEntry = Object.entries(rawFields).find(([key]) => /^footer(settings)?$/i.test(key))
+  if (footerBlockEntry && isPlainObject(footerBlockEntry[1])) {
+    delete rawFields[footerBlockEntry[0]]
+    for (const [key, value] of Object.entries(footerBlockEntry[1])) {
+      rawFields[`FooterSettings_${key}`] = value
+    }
+  }
+
   let ctaText: string | undefined
   let ctaHref: string | undefined
+  let loginText: string | undefined
+  let loginHref: string | undefined
+  let appointmentText: string | undefined
+  let appointmentHref: string | undefined
   let announcementText: string | undefined
   let announcementHref: string | undefined
   let announcementEnabled: boolean | undefined
@@ -313,6 +338,24 @@ export function normalizeSiteSettings(
         if (columns.length) settings.footerColumns = columns
         break
       }
+      case 'footerLogo':
+        settings.footerLogo ??= toImage(normalized)
+        break
+      case 'footerDescription':
+        settings.footerDescription ??= toText(normalized)
+        break
+      case 'loginText':
+        loginText ??= toText(normalized)
+        break
+      case 'loginHref':
+        loginHref ??= toLink(normalized)?.href ?? toText(normalized)
+        break
+      case 'appointmentText':
+        appointmentText ??= toText(normalized)
+        break
+      case 'appointmentHref':
+        appointmentHref ??= toLink(normalized)?.href ?? toText(normalized)
+        break
       case 'socialLinks': {
         const links = toLinks(normalized)
         if (links.length) settings.socialLinks = links
@@ -367,12 +410,17 @@ export function normalizeSiteSettings(
   settings.fields = describeRawFields(item)
 
   const cta: CmsLink | undefined = ctaHref || ctaText ? { href: ctaHref ?? '#', label: ctaText } : undefined
+  const login: CmsLink | undefined = loginHref || loginText ? { href: loginHref ?? '#', label: loginText } : undefined
+  const appointment: CmsLink | undefined =
+    appointmentHref || appointmentText ? { href: appointmentHref ?? '#', label: appointmentText } : undefined
 
   return {
     ...settings,
     siteName: settings.siteName ?? meta.displayName,
     tagline: settings.tagline,
     cta,
+    login,
+    appointment,
     announcement: announcementText
       ? { text: announcementText, href: announcementHref, enabled: announcementEnabled ?? true }
       : undefined,

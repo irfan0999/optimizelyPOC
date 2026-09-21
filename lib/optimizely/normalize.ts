@@ -43,7 +43,7 @@ export interface RawField {
   value: CmsRawValue
 }
 
-const URL_KEYS = ['href', 'url', 'link', 'value', 'linkUrl', 'urlValue']
+const URL_KEYS = ['href', 'url', 'link', 'value', 'linkUrl', 'urlValue', 'imageLink', 'imageUrl', 'image']
 const LABEL_KEYS = [
   'label',
   'name',
@@ -54,8 +54,19 @@ const LABEL_KEYS = [
   'linkLabel',
   'heading',
   'alt',
+  'altText',
   'platform',
 ]
+
+/** First matching key of `keys`, ignoring case — CMS models use PascalCase
+ * (`LinkText`, `URL`, `altText`), the normalisation helpers look for camelCase. */
+function pick(record: Record<string, unknown>, keys: string[]): unknown {
+  for (const key of keys) {
+    const match = Object.keys(record).find((candidate) => candidate.toLowerCase() === key.toLowerCase())
+    if (match !== undefined && record[match] !== null && record[match] !== undefined) return record[match]
+  }
+  return undefined
+}
 
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -85,8 +96,9 @@ export function toText(value: CmsRawValue): string | undefined {
   }
   if (isPlainObject(value)) {
     for (const key of ['html', 'text', 'value', 'displayName', 'label', 'name', 'title']) {
-      if (key in value) {
-        const text = toText(value[key])
+      const found = pick(value, [key])
+      if (found !== undefined) {
+        const text = toText(found)
         if (text) return key === 'html' ? stripHtml(text) || undefined : text
       }
     }
@@ -105,26 +117,25 @@ function firstUrlString(value: CmsRawValue, depth = 0): string | undefined {
   if (typeof value === 'string') return value.trim() || undefined
 
   if (isPlainObject(value)) {
-    for (const key of URL_KEYS) {
-      if (key in value) {
-        const found = firstUrlString(value[key], depth + 1)
-        if (found) return found
-      }
+    const fromKeys = pick(value, URL_KEYS)
+    if (fromKeys !== undefined) {
+      const found = firstUrlString(fromKeys, depth + 1)
+      if (found) return found
     }
     // ContentReference / media: { url: { default: '…' } }, sometimes nested
     // under `_metadata` for referenced items.
-    if ('url' in value) {
-      const fromUrl = firstUrlString(value.url, depth + 1)
+    const url = pick(value, ['url'])
+    if (url !== undefined) {
+      const fromUrl = firstUrlString(url, depth + 1)
       if (fromUrl) return fromUrl
     }
-    if (isPlainObject(value._metadata)) {
-      const fromMeta = firstUrlString(value._metadata.url, depth + 1)
+    const metadata = pick(value, ['_metadata'])
+    if (isPlainObject(metadata)) {
+      const fromMeta = firstUrlString(pick(metadata, ['url']), depth + 1)
       if (fromMeta) return fromMeta
     }
-    for (const key of ['default', 'internal', 'hierarchical', 'absolute', 'base']) {
-      const candidate = value[key]
-      if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
-    }
+    const candidate = pick(value, ['default', 'internal', 'hierarchical', 'absolute', 'base'])
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
   }
 
   if (Array.isArray(value)) {
@@ -148,8 +159,8 @@ export function toLink(value: CmsRawValue): CmsLink | undefined {
   if (isPlainObject(value)) {
     const href = firstUrlString(value)
     if (!href) return undefined
-    const label = LABEL_KEYS.map((key) => toText(value[key])).find(Boolean)
-    const target = typeof value.target === 'string' ? value.target : typeof value.linkTarget === 'string' ? value.linkTarget : undefined
+    const label = LABEL_KEYS.map((key) => toText(pick(value, [key]))).find(Boolean)
+    const target = toText(pick(value, ['target', 'linkTarget']))
     return { href, label, target, source: value }
   }
 
@@ -171,9 +182,11 @@ export function toImage(value: CmsRawValue): CmsImage | undefined {
   if (!url) return undefined
 
   const record = isPlainObject(value) ? value : {}
-  const alt = LABEL_KEYS.map((key) => toText(record[key])).find(Boolean)
-  const width = typeof record.width === 'number' ? record.width : undefined
-  const height = typeof record.height === 'number' ? record.height : undefined
+  const alt = LABEL_KEYS.map((key) => toText(pick(record, [key]))).find(Boolean)
+  const widthValue = pick(record, ['width'])
+  const heightValue = pick(record, ['height'])
+  const width = typeof widthValue === 'number' ? widthValue : undefined
+  const height = typeof heightValue === 'number' ? heightValue : undefined
 
   return { url, alt, width, height, source: value }
 }
@@ -192,9 +205,8 @@ export function toColumns(value: CmsRawValue): CmsColumn[] {
         return { links: link ? [link] : [] }
       }
 
-      const title = ['title', 'heading', 'name', 'label', 'displayName'].map((key) => toText(entry[key])).find(Boolean)
-      const nested =
-        entry.links ?? entry.linkItems ?? entry.items ?? entry.navigation ?? entry.menu ?? entry.children ?? entry.columns
+      const title = ['title', 'heading', 'name', 'label', 'displayName'].map((key) => toText(pick(entry, [key]))).find(Boolean)
+      const nested = pick(entry, ['links', 'linkItems', 'items', 'navigation', 'menu', 'children', 'columns'])
       let links = toLinks(nested)
 
       // A block that is itself a link (title + href) becomes a one-link column.
@@ -245,6 +257,12 @@ export const transforms: Record<string, (value: CmsRawValue) => unknown> = {
   announcementText: (value) => toText(value),
   announcementHref: (value) => toLink(value)?.href ?? toText(value),
   announcementEnabled: (value) => toBoolean(value) ?? Boolean(toText(value)),
+  loginText: (value) => toText(value),
+  loginHref: (value) => toLink(value)?.href ?? toText(value),
+  appointmentText: (value) => toText(value),
+  appointmentHref: (value) => toLink(value)?.href ?? toText(value),
+  footerLogo: (value) => toImage(value),
+  footerDescription: (value) => toText(value),
 }
 
 export function normalizeTransform(target: string): (value: CmsRawValue) => unknown {
@@ -262,6 +280,14 @@ export interface FieldRule {
  * the CMS inspector.
  */
 export const fieldRules: FieldRule[] = [
+  // Header/Footer settings models (e.g. HeaderSettingsDOC) — pinned before the
+  // generic patterns so `FooterSettings_Logo` never maps to the header logo.
+  { target: 'footerLogo', test: /^footer(settings)?_?logo$/i },
+  { target: 'footerDescription', test: /^footer(settings)?_?description$/i },
+  { target: 'loginText', test: /^login_?(text|label|caption|title)$/i },
+  { target: 'loginHref', test: /^login_?(link|href|url|target)$/i },
+  { target: 'appointmentText', test: /^appointment_?(text|label|caption|title)$/i },
+  { target: 'appointmentHref', test: /^appointment_?(link|href|url|target)$/i },
   { target: 'logo', test: /logo|brand.?mark|brand.?image/i },
   { target: 'favicon', test: /favicon|touch.?icon/i },
   { target: 'siteName', test: /^(site.?name|brand.?name|company.?name|organisation|organization|website.?name)$/i },
@@ -300,16 +326,23 @@ export interface MappedField {
 /** Apply the explicit overrides first, then the heuristic rules. */
 export function mapFields(raw: Record<string, unknown>): MappedField[] {
   const mapped: MappedField[] = []
+  const entries = Object.entries(raw)
   const claimed = new Set<string>()
 
-  for (const [key, target] of Object.entries(fieldOverrides)) {
-    if (key in raw) {
+  // Overrides match property names ignoring case, so an override written as
+  // `LinkText` also pins a CMS property returned as `linkText`.
+  const findKey = (name: string) =>
+    entries.find(([key]) => !claimed.has(key) && key.toLowerCase() === name.toLowerCase())?.[0]
+
+  for (const [name, target] of Object.entries(fieldOverrides)) {
+    const key = findKey(name)
+    if (key) {
       mapped.push({ key, target, value: raw[key], transform: normalizeTransform(target) })
       claimed.add(key)
     }
   }
 
-  for (const [key, value] of Object.entries(raw)) {
+  for (const [key, value] of entries) {
     if (claimed.has(key)) continue
     const rule = fieldRules.find((candidate) => candidate.test.test(key))
     if (!rule) continue
