@@ -44,6 +44,24 @@ export interface SchemaIndex {
 
 const SCHEMA_STATE = 'schema'
 
+/** System fields that make no sense in a generated selection set — some are
+ * outright rejected by Optimizely Graph (e.g. `_json` is only valid inside the
+ * `item` field of an autocomplete/query result, not on a typed content query). */
+const SKIPPED_FIELDS = new Set([
+  '_children',
+  '_link',
+  '_deleted',
+  '_fulltext',
+  '_modified',
+  '_score',
+  '_source',
+  '_id',
+  '_track',
+  '_itemMetadata',
+  '_json',
+  '_routing',
+])
+
 /** System prefixes that make no sense in a generated selection set. */
 const SKIPPED_PREFIXES = ['_link', '_score', '_sortOrder', '_modified', '_fulltext']
 
@@ -148,6 +166,7 @@ export function buildSelectionSet(
       if (hasRequiredArgs(field)) continue
       const fieldName = field.name
       if (fieldName.startsWith('__')) continue
+      if (SKIPPED_FIELDS.has(fieldName)) continue
       if (SKIPPED_PREFIXES.some((prefix) => fieldName.startsWith(prefix))) continue
 
       const named = unwrap(field.type)
